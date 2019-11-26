@@ -1,7 +1,7 @@
 
 build:
-	GOOS=linux GOARCH=amd64 go build -o ./dist/build/main ./lambda/...
-	zip -r ./dist/bundle.zip ./dist/build/
+	GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o ./dist/build/main ./lambda/...
+	zip -r dist/bundle.zip ./dist/build/
 package:
 	aws cloudformation package --template-file template.yaml --output-template-file dist/template-packaged.yml --s3-bucket ${CODE_BUCKET}
 install-cf:

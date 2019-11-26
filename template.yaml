@@ -7,7 +7,7 @@ Parameters:
     Description: S3 Bucket where original images are placed
   MemorySize:
     Type: Number
-    Default: 5008
+    Default: 3008
     Description: Memory size to be used for your Lambda (Note that this setting will increase also the CPU power and price per second.)
     AllowedValues:
     - 128
@@ -56,13 +56,12 @@ Parameters:
     - 2880
     - 2944
     - 3008
-    - 5008
 Resources:
   ResizeFunction:
     Type: AWS::Serverless::Function
     Properties:
       Description: Image Resizing Lambda
-      Handler: main
+      Handler: dist/build/main
       Runtime: go1.x
       Timeout: 60
       CodeUri: dist/bundle.zip
