@@ -1,0 +1,108 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Serverless REST API for image resizing
+Parameters:
+  ImageBucket:
+    Description: S3 Bucket where original images are placed
+    Type: String
+  MemorySize:
+    AllowedValues:
+    - 128
+    - 192
+    - 256
+    - 320
+    - 384
+    - 448
+    - 512
+    - 576
+    - 640
+    - 704
+    - 768
+    - 832
+    - 896
+    - 960
+    - 1024
+    - 1088
+    - 1152
+    - 1216
+    - 1280
+    - 1344
+    - 1408
+    - 1472
+    - 1536
+    - 1600
+    - 1664
+    - 1728
+    - 1792
+    - 1856
+    - 1920
+    - 1984
+    - 2048
+    - 2112
+    - 2176
+    - 2240
+    - 2304
+    - 2368
+    - 2432
+    - 2496
+    - 2560
+    - 2624
+    - 2688
+    - 2752
+    - 2816
+    - 2880
+    - 2944
+    - 3008
+    - 5008
+    Default: 5008
+    Description: Memory size to be used for your Lambda (Note that this setting will
+      increase also the CPU power and price per second.)
+    Type: Number
+Resources:
+  Api:
+    Properties:
+      DefinitionBody:
+        paths:
+          /{proxy+}:
+            get:
+              responses: {}
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                passthroughBehavior: when_no_match
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ResizeFunction.Arn}/invocations
+        schemes:
+        - https
+        swagger: '2.0'
+        x-amazon-apigateway-binary-media-types:
+        - '*/*'
+      Name: ImageResizerAPIGo
+      StageName: production
+    Type: AWS::Serverless::Api
+  ResizeFunction:
+    Properties:
+      CodeUri: s3://serverless-naoto/3082c7030c0e58027fdb0c08ae27a342
+      Description: Image Resizing Lambda
+      Environment:
+        Variables:
+          IMAGE_BUCKET:
+            Ref: ImageBucket
+      Events:
+        AuthorizerApiRoot:
+          Properties:
+            Method: GET
+            Path: /{proxy+}
+            RestApiId:
+              Ref: Api
+          Type: Api
+      Handler: index.handler
+      MemorySize:
+        Ref: MemorySize
+      Policies:
+      - S3ReadPolicy:
+          BucketName:
+            Ref: ImageBucket
+      Runtime: go1.x
+      Timeout: 60
+    Type: AWS::Serverless::Function
+Transform: AWS::Serverless-2016-10-31
