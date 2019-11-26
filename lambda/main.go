@@ -3,20 +3,22 @@ package main
 import (
 	"bytes"
 	"encoding/base64"
-	"fmt"
+	"encoding/json"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/disintegration/imaging"
 	"github.com/labstack/gommon/log"
-	"github.com/mitchellh/mapstructure"
+	"github.com/sanity-io/litter"
 	"image"
-	"io"
-	"os"
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
+	"io"
+	"mime"
+	"os"
+	"path/filepath"
 )
 
 var BUCKET string
@@ -47,10 +49,11 @@ func serveFunc(request events.APIGatewayProxyRequest) (resp events.APIGatewayPro
 	}
 
 	dst := []byte{}
+	mimeType := mime.TypeByExtension(filepath.Ext(path))
 
 	params := getParams(request.QueryStringParameters)
 	if params.HasOptions() {
-		dst  , err = imagProcess(obj.Body , params)
+		dst  , mimeType , err = imagProcess(obj.Body , params)
 		if err != nil {
 			return
 		}
@@ -70,7 +73,7 @@ func serveFunc(request events.APIGatewayProxyRequest) (resp events.APIGatewayPro
 	resp = events.APIGatewayProxyResponse{
 		StatusCode:        200,
 		Headers:           map[string]string{
-			`Content-Type` : `image/jpeg`,
+			`Content-Type` : mimeType,
 		},
 		//MultiValueHeaders: nil,
 		Body:              sEnc,
@@ -80,32 +83,38 @@ func serveFunc(request events.APIGatewayProxyRequest) (resp events.APIGatewayPro
 	return resp , nil
 }
 
-func imagProcess(r io.ReadCloser  , params Params) ([]byte ,error) {
+func imagProcess(r io.ReadCloser  , params Params) (encoded []byte , mimeType string , err error) {
 
 	img, t, err := image.Decode(r)
 	if err != nil {
 		log.Error(err)
-		return nil , err
+		return nil ,"" ,  err
 	}
-	fmt.Println("Type of image:", t)
+
+	decodeType  , mimeType := typeToDecodeAndMime(t)
 
 	//rectange of image
 	rctSrc := img.Bounds()
-	fmt.Println("Width:", rctSrc.Dx())
-	fmt.Println("Height:", rctSrc.Dy())
 
-	w := func() int {
-		if params.Width != nil  {
-			return *params.Width
-		}
-		return rctSrc.Dx()
-	}()
+	litter.Dump(params)
 
-	h := func() int {
-		if params.Height != nil  {
-			return *params.Height
+	w ,  h := func() (int  ,int){
+		if params.Width == nil && params.Height == nil  {
+			return rctSrc.Dx() , rctSrc.Dy()
 		}
-		return rctSrc.Dy()
+
+		if params.Width != nil && params.Height != nil  {
+			return *params.Width , *params.Height
+		}
+
+		if params.Width != nil {
+			ratio := float64(rctSrc.Dy()) / float64(rctSrc.Dx())
+			return *params.Width , int(float64(*params.Width) * ratio)
+		}
+
+		ratio := float64(rctSrc.Dx()) / float64(rctSrc.Dy())
+		return int(float64(*params.Height) * ratio)  , *params.Height
+
 	}()
 
 	dst := new(bytes.Buffer)
@@ -114,37 +123,37 @@ func imagProcess(r io.ReadCloser  , params Params) ([]byte ,error) {
 	//encode resized image
 	/*
 	dst := new(bytes.Buffer)
-	switch t {
-	case "jpeg":
-		if err := jpeg.Encode(dst, imgDst, &jpeg.Options{Quality: 100}); err != nil {
-			return
-		}
-	case "gif":
-		if err := gif.Encode(dst, imgDst, nil); err != nil {
-			return
-		}
-	case "png":
-		if err := png.Encode(dst, imgDst); err != nil {
-			return
-		}
-	default:
-		fmt.Fprintln(os.Stderr, "format error")
-	}
 
 	 */
-	err = imaging.Encode(dst , imgDst , imaging.JPEG)
+	err = imaging.Encode(dst , imgDst , decodeType)
 	if err != nil {
 		log.Error(err)
-		return nil, err
+		return nil, "",  err
 	}
-	return dst.Bytes() , nil
+	return dst.Bytes() , mimeType  , nil
 
+}
+
+func typeToDecodeAndMime(t string) (imaging.Format , string) {
+
+	switch t {
+	case "jpeg":
+			return imaging.JPEG , `image/jpeg`
+	case "gif":
+			return imaging.GIF , `image/gif`
+	case "png":
+			return imaging.PNG  ,`image/png`
+	case "tiff":
+		return imaging.TIFF  ,`image/tiff`
+	default:
+		return imaging.JPEG , `image/jpeg`
+	}
 }
 
 
 type Params struct {
-	Width *int `mapstructure:"width"`
-	Height *int  `mapstructure:"height"`
+	Width *int `json:"width,string,omitempty"`
+	Height *int  `json:"height,string,omitempty"`
 }
 
 func (self *Params) HasOptions () bool {
@@ -164,8 +173,12 @@ func getParams(m map[string]string)  Params{
 		return p
 	}
 
+	j , err := json.Marshal(m)
+	if err != nil {
+		log.Error(err)
+	}
 
-	err := mapstructure.Decode(m, &p)
+	err = json.Unmarshal(j, &p)
 	if err != nil {
 		log.Error(err)
 	}
