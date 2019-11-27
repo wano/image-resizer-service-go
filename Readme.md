@@ -22,7 +22,12 @@ OriginParh = `/production`
 ```
 
 ## params  option
+```
 width : int
 height : int
 auto_rotate : boolean
+```
+
+## TODO
+Lambdaの response は 6MBで死ぬ
 
