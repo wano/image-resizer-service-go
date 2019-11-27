@@ -213,11 +213,8 @@ func getParams(m map[string]string) Params {
 
 func getMimeAndDecodeType(b *bytes.Buffer) (*MimeAndDecodeType, error) {
 
-	bb, err := b.ReadBytes(512)
-	if err != nil {
-		log.Error(err)
-		return nil, err
-	}
+	// todo lightweight
+	bb := b.Bytes()
 
 	contentType := http.DetectContentType(bb)
 
