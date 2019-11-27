@@ -79,13 +79,7 @@ func serveFunc(request events.APIGatewayProxyRequest) (resp events.APIGatewayPro
 		}
 
 	} else {
-		buf := new(bytes.Buffer)
-		_, err = buf.ReadFrom(obj.Body)
-		if err != nil {
-			log.Error(err)
-			return
-		}
-		dst = buf.Bytes()
+		dst = original.Bytes()
 	}
 
 	sEnc := base64.StdEncoding.EncodeToString(dst)
