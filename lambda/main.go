@@ -117,9 +117,6 @@ func imagProcess(buf *bytes.Buffer, params Params, md MimeAndDecodeType) (encode
 		return nil, "", err
 	}
 
-	//decodeType  , mimeType := typeToDecodeAndMime(img.)
-
-	//rectange of image
 	rctSrc := img.Bounds()
 
 	w, h := func() (int, int) {
@@ -144,36 +141,13 @@ func imagProcess(buf *bytes.Buffer, params Params, md MimeAndDecodeType) (encode
 	dst := new(bytes.Buffer)
 	imgDst := imaging.Resize(img, w, h, imaging.Lanczos)
 
-	//encode resized image
-	/*
-		dst := new(bytes.Buffer)
-
-	*/
-	log.Info(`encode start`)
 	err = imaging.Encode(dst, imgDst, md.Format)
 	if err != nil {
 		log.Error(err)
 		return nil, "", err
 	}
-	log.Info(`encode end`)
 	return dst.Bytes(), mimeType, nil
 
-}
-
-func typeToDecodeAndMime(t string) (imaging.Format, string) {
-
-	switch t {
-	case "jpeg":
-		return imaging.JPEG, `image/jpeg`
-	case "gif":
-		return imaging.GIF, `image/gif`
-	case "png":
-		return imaging.PNG, `image/png`
-	case "tiff":
-		return imaging.TIFF, `image/tiff`
-	default:
-		return imaging.JPEG, `image/jpeg`
-	}
 }
 
 type Params struct {
@@ -213,7 +187,7 @@ func getParams(m map[string]string) Params {
 
 func getMimeAndDecodeType(b *bytes.Buffer) (*MimeAndDecodeType, error) {
 
-	// todo lightweight
+	// todo: be lightweight
 	bb := b.Bytes()
 
 	contentType := http.DetectContentType(bb)
